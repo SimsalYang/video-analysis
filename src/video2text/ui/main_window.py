@@ -199,7 +199,7 @@ class MainWindow(QMainWindow):
         model_layout = QHBoxLayout()
         model_layout.addWidget(QLabel("模型:"))
         self.model_combo = QComboBox()
-        self.model_combo.addItems(["llama3.2", "deepseek-r1:7b", "qwen2.5", "mistral"])
+        self.model_combo.addItems(["llama3.2", "deepseek-r1:7b"])
         self.ollama_rb.toggled.connect(lambda: self._update_model_list("ollama"))
         self.openai_rb.toggled.connect(lambda: self._update_model_list("openai"))
         self.gemini_rb.toggled.connect(lambda: self._update_model_list("gemini"))
@@ -282,7 +282,7 @@ class MainWindow(QMainWindow):
     def _update_model_list(self, provider: str):
         self.model_combo.clear()
         if provider == "ollama":
-            self.model_combo.addItems(["llama3.2", "deepseek-r1:7b", "qwen2.5", "mistral"])
+            self.model_combo.addItems(["llama3.2", "deepseek-r1:7b"])
         elif provider == "openai":
             self.model_combo.addItems(["gpt-4o", "gpt-4o-mini", "o3", "o3-mini"])
         elif provider == "gemini":
