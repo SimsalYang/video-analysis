@@ -199,7 +199,7 @@ class MainWindow(QMainWindow):
         model_layout = QHBoxLayout()
         model_layout.addWidget(QLabel("模型:"))
         self.model_combo = QComboBox()
-        self.model_combo.addItems(["llama3", "qwen2.5", "mistral"])
+        self.model_combo.addItems(["llama3.2", "deepseek-r1:7b", "qwen2.5", "mistral"])
         self.ollama_rb.toggled.connect(lambda: self._update_model_list("ollama"))
         self.openai_rb.toggled.connect(lambda: self._update_model_list("openai"))
         self.gemini_rb.toggled.connect(lambda: self._update_model_list("gemini"))
