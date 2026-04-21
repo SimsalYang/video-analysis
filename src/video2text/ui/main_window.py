@@ -1,3 +1,4 @@
+"""Main window UI - minimal stub to verify PyQt6 import."""
 from PyQt6.QtWidgets import QMainWindow, QLabel, QVBoxLayout, QWidget
 
 
@@ -7,8 +8,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Video2Text")
         self.setMinimumSize(900, 700)
 
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-
-        layout = QVBoxLayout(central_widget)
+        central = QWidget()
+        layout = QVBoxLayout(central)
         layout.addWidget(QLabel("Video2Text - Loading..."))
+        self.setCentralWidget(central)

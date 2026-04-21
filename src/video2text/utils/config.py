@@ -1,13 +1,22 @@
+"""Configuration management via .env file."""
+import os
+
+
 def get_ollama_base_url() -> str:
-    """Get Ollama base URL from config."""
-    return "http://localhost:11434"
+    return os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 
 def get_ollama_model() -> str:
-    """Get Ollama model name from config."""
-    return "llama3"
+    return os.getenv("OLLAMA_MODEL", "llama3")
+
+
+def get_openai_api_key():
+    return os.getenv("OPENAI_API_KEY") or None
+
+
+def get_gemini_api_key():
+    return os.getenv("GEMINI_API_KEY") or None
 
 
 def get_whisper_model() -> str:
-    """Get Whisper model name from config."""
-    return "base"
+    return os.getenv("WHISPER_MODEL", "base")

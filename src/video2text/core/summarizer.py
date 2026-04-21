@@ -1,59 +1,34 @@
+"""LLM-based summarization with multiple provider support."""
 from abc import ABC, abstractmethod
+from typing import Literal
 
 
 class LLMProvider(ABC):
-    """Abstract base class for LLM providers."""
-
     @abstractmethod
-    def summarize(self, text: str) -> str:
-        """Generate a summary of the given text."""
+    def generate_summary(self, text: str) -> str:
         pass
 
 
 class OllamaProvider(LLMProvider):
-    """Ollama LLM provider."""
-
-    def __init__(self, base_url: str, model: str):
-        self.base_url = base_url
-        self.model = model
-
-    def summarize(self, text: str) -> str:
-        # TODO: implement
-        return ""
+    def name(self) -> str:
+        return "Ollama"
 
 
 class OpenAIProvider(LLMProvider):
-    """OpenAI LLM provider."""
-
-    def __init__(self, api_key: str, model: str = "gpt-4"):
-        self.api_key = api_key
-        self.model = model
-
-    def summarize(self, text: str) -> str:
-        # TODO: implement
-        return ""
+    def name(self) -> str:
+        return "OpenAI"
 
 
 class GeminiProvider(LLMProvider):
-    """Google Gemini LLM provider."""
-
-    def __init__(self, api_key: str, model: str = "gemini-pro"):
-        self.api_key = api_key
-        self.model = model
-
-    def summarize(self, text: str) -> str:
-        # TODO: implement
-        return ""
+    def name(self) -> str:
+        return "Gemini"
 
 
-def create_provider(provider_type: str, **kwargs) -> LLMProvider:
-    """Factory function to create LLM provider instances."""
-    providers = {
-        "ollama": OllamaProvider,
-        "openai": OpenAIProvider,
-        "gemini": GeminiProvider,
-    }
-    provider_class = providers.get(provider_type.lower())
-    if not provider_class:
-        raise ValueError(f"Unknown provider type: {provider_type}")
-    return provider_class(**kwargs)
+def create_provider(provider_type: Literal["ollama", "openai", "gemini"], api_key: str = "", model: str = "") -> LLMProvider:
+    if provider_type == "ollama":
+        return OllamaProvider()
+    elif provider_type == "openai":
+        return OpenAIProvider()
+    elif provider_type == "gemini":
+        return GeminiProvider()
+    raise ValueError(f"Unknown provider: {provider_type}")

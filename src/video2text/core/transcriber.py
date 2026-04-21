@@ -1,4 +1,7 @@
-def transcribe(audio_path: str) -> list[dict]:
-    """Transcribe audio file and return list of segment dictionaries."""
-    # TODO: implement with faster-whisper
+"""Whisper-based transcription."""
+from typing import List
+
+
+def transcribe(audio_path: str, model: str = "base") -> List[dict]:
+    """Stub - returns empty list."""
     return []

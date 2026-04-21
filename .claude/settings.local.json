@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ':*)",
+      "Bash(PYTHONPATH=src python -c \"from video2text.ui.main_window import MainWindow; print\\('OK'\\)\")",
+      "Bash(python -c \"from video2text.ui.main_window import MainWindow; print\\('Import OK'\\)\")",
+      "Bash(pip install:*)",
+      "Bash(PYTHONPATH=\"H:/WORKSPACE/Projects/video-analysis/src\" python -c \"from video2text.ui.main_window import MainWindow; print\\('Import OK'\\)\")"
+    ]
+  }
+}
