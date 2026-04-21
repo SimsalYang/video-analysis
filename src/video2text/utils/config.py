@@ -7,7 +7,7 @@ def get_ollama_base_url() -> str:
 
 
 def get_ollama_model() -> str:
-    return os.getenv("OLLAMA_MODEL", "llama3")
+    return os.getenv("OLLAMA_MODEL", "llama3.2")
 
 
 def get_openai_api_key():

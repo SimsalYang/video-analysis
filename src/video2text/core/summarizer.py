@@ -93,7 +93,7 @@ def create_provider(
 ) -> LLMProvider:
     """Factory function to create LLM provider."""
     if provider_type == "ollama":
-        return OllamaProvider(model=model or "llama3")
+        return OllamaProvider(model=model or "llama3.2")
     elif provider_type == "openai":
         return OpenAIProvider(api_key=api_key, model=model or "gpt-4o")
     elif provider_type == "gemini":

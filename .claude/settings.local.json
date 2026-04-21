@@ -5,7 +5,21 @@
       "Bash(PYTHONPATH=src python -c \"from video2text.ui.main_window import MainWindow; print\\('OK'\\)\")",
       "Bash(python -c \"from video2text.ui.main_window import MainWindow; print\\('Import OK'\\)\")",
       "Bash(pip install:*)",
-      "Bash(PYTHONPATH=\"H:/WORKSPACE/Projects/video-analysis/src\" python -c \"from video2text.ui.main_window import MainWindow; print\\('Import OK'\\)\")"
+      "Bash(PYTHONPATH=\"H:/WORKSPACE/Projects/video-analysis/src\" python -c \"from video2text.ui.main_window import MainWindow; print\\('Import OK'\\)\")",
+      "Bash(set PYTHONPATH=H:/WORKSPACE/Projects/video-analysis/src)",
+      "Bash(python -m pytest tests/test_file_handler.py -v)",
+      "Bash(export PYTHONPATH=\"H:/WORKSPACE/Projects/video-analysis/src\")",
+      "mcp__plugin_claude-mem_mcp-search__search",
+      "Bash(python:*)",
+      "Bash(pip list:*)",
+      "Bash(pip show:*)",
+      "Bash(pytest tests/ -v)",
+      "Bash(git config:*)",
+      "Bash(rm -f F:/WORKSPACE/Projects/video-analysis/.git/index.lock)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(ffmpeg -version)",
+      "Bash(curl -s http://localhost:11434/api/tags)"
     ]
   }
 }

@@ -37,42 +37,62 @@ class Worker(QThread):
         self.summary_model = summary_model
 
     def run(self):
+        import logging
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
+        logger = logging.getLogger(__name__)
+
         try:
             result = {"transcript": [], "summary": None, "duration": "00:00:00",
                       "source": self.source_path, "error": None}
             audio_path = None
 
             self.progress.emit("正在准备文件...")
+            logger.info("开始处理文件...")
             if self.source_type == "file":
                 valid, err = validate_file(self.source_path)
                 if not valid:
                     raise ValueError(err)
+                logger.info(f"文件验证通过: {self.source_path}")
 
                 if is_audio_file(self.source_path):
                     audio_path = self.source_path
                     result["duration"] = get_duration(audio_path)
+                    logger.info(f"音频文件，直接使用，时长: {result['duration']}")
                 else:
                     self.progress.emit("正在提取音频...")
+                    logger.info("正在使用 FFmpeg 提取音频...")
                     audio_path = extract_audio(self.source_path)
                     result["duration"] = get_duration(audio_path)
+                    logger.info(f"音频提取完成，时长: {result['duration']}")
             else:
                 self.progress.emit("正在下载视频...")
+                logger.info(f"正在下载视频: {self.source_path}")
                 video_path = download_video(self.source_path, tempfile.gettempdir())
+                logger.info(f"视频下载完成: {video_path}")
+                self.progress.emit("正在提取音频...")
+                logger.info("正在使用 FFmpeg 提取音频...")
                 audio_path = extract_audio(video_path)
                 result["duration"] = get_duration(audio_path)
+                logger.info(f"音频提取完成，时长: {result['duration']}")
 
             self.progress.emit("正在转录音频...")
+            logger.info(f"正在使用 Whisper ({self.whisper_model}) 转录音频...")
             segments = transcribe(audio_path, model=self.whisper_model)
             result["transcript"] = segments
+            logger.info(f"转录完成，共 {len(segments)} 个片段")
 
             if self.generate_summary and self.llm_provider:
                 self.progress.emit("正在生成摘要...")
+                logger.info(f"正在使用 {self.llm_provider.name()} 生成摘要...")
                 full_text = " ".join(seg["text"] for seg in segments)
                 summary_text = self.llm_provider.generate_summary(full_text)
                 result["summary"] = self._parse_summary(summary_text)
+                logger.info("摘要生成完成")
 
+            logger.info("处理完成！")
             self.finished.emit(result)
         except Exception as e:
+            logger.error(f"处理失败: {e}")
             traceback.print_exc()
             self.error.emit(str(e))
 
@@ -262,7 +282,7 @@ class MainWindow(QMainWindow):
     def _update_model_list(self, provider: str):
         self.model_combo.clear()
         if provider == "ollama":
-            self.model_combo.addItems(["llama3", "qwen2.5", "mistral", "phi3"])
+            self.model_combo.addItems(["llama3.2", "deepseek-r1:7b", "qwen2.5", "mistral"])
         elif provider == "openai":
             self.model_combo.addItems(["gpt-4o", "gpt-4o-mini", "o3", "o3-mini"])
         elif provider == "gemini":
