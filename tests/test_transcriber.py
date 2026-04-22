@@ -63,3 +63,28 @@ def test_transcribe_with_mock():
 def test_transcribe_invalid_model():
     with pytest.raises(ValueError):
         transcribe("/fake/audio.mp3", model="invalid_model")
+
+
+def test_transcribe_with_progress_callback():
+    """Test transcribe_with_progress calls callback with segment index."""
+    from video2text.core.transcriber import transcribe_with_progress
+    mock_segments = [
+        MagicMock(start=0.0, text="Hello world"),
+        MagicMock(start=5.0, text="This is a test"),
+    ]
+
+    progress_calls = []
+
+    def progress_cb(current, total):
+        progress_calls.append((current, total))
+
+    with patch("faster_whisper.WhisperModel") as mock_model_class:
+        mock_model = MagicMock()
+        mock_model.transcribe.return_value = (mock_segments, MagicMock())
+        mock_model_class.return_value = mock_model
+
+        result = transcribe_with_progress("/fake/audio.mp3", model="base",
+                                         progress_callback=progress_cb)
+
+        assert len(result) == 2
+        assert len(progress_calls) >= 1

@@ -30,7 +30,17 @@
       "Bash(git show:*)",
       "Bash(python3 -c \"from video2text.ui.main_window import MainWindow; print\\('OK'\\)\")",
       "Bash(F:/WORKSPACE/Projects/video-analysis/.venv/Scripts/python.exe:*)",
-      "Bash(/c/Users/xuewu/AppData/Local/Programs/Python/Python310/python.exe:*)"
+      "Bash(/c/Users/xuewu/AppData/Local/Programs/Python/Python310/python.exe:*)",
+      "Bash(F:/WORKSPACE/Projects/video-analysis/.venv/Scripts/pytest.exe:*)",
+      "Bash(/f/WORKSPACE/Projects/video-analysis/.venv/Scripts/python.exe:*)",
+      "Bash(cmd:*)",
+      "Bash(PYTHONPATH=F:/WORKSPACE/Projects/video-analysis/src F:/WORKSPACE/Projects/video-analysis/.venv/Scripts/python.exe:*)",
+      "Bash(env:*)",
+      "Bash(bash:*)",
+      "Bash(PYTHONPATH=./src ./Scripts/python.exe:*)",
+      "Bash(/f/WORKSPACE/Projects/video-analysis/.venv/Scripts/python:*)",
+      "Bash(/c/Users/xuewu/AppData/Local/Microsoft/WindowsApps/python3:*)",
+      "Bash(/c/Users/xuewu/AppData/Local/Microsoft/WindowsApps/python3.exe:*)"
     ]
   }
 }

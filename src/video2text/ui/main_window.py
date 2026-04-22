@@ -13,7 +13,7 @@ from PyQt6.QtCore import Qt, QThread, QEvent, pyqtSignal
 
 from video2text.core.file_handler import validate_file, extract_audio, is_audio_file, get_duration
 from video2text.core.downloader import download_video
-from video2text.core.transcriber import transcribe, format_transcript
+from video2text.core.transcriber import transcribe, transcribe_with_progress, format_transcript
 from video2text.core.summarizer import create_provider
 from video2text.core.output_formatter import format_markdown, format_json
 from video2text.utils.config import (
@@ -31,7 +31,9 @@ class _AsyncResultEvent(QEvent):
 
 
 class Worker(QThread):
-    progress = pyqtSignal(str)
+    progress = pyqtSignal(str)      # status text
+    progress_pct = pyqtSignal(int)  # percentage 0-100
+    progress_mode = pyqtSignal(str) # "indeterminate" | "percentage"
     finished = pyqtSignal(dict)
     error = pyqtSignal(str)
 
@@ -55,8 +57,10 @@ class Worker(QThread):
                       "source": self.source_path, "error": None}
             audio_path = None
 
+            self.progress_mode.emit("indeterminate")
             self.progress.emit("正在准备文件...")
             logger.info("开始处理文件...")
+
             if self.source_type == "file":
                 valid, err = validate_file(self.source_path)
                 if not valid:
@@ -84,11 +88,25 @@ class Worker(QThread):
                 result["duration"] = get_duration(audio_path)
                 logger.info(f"音频提取完成，时长: {result['duration']}")
 
-            self.progress.emit("正在转录音频...")
+            # Step: Transcribe with real percentage progress
+            self.progress_mode.emit("percentage")
+            self.progress_pct.emit(0)
+            self.progress.emit("正在转录音频... 0%")
             logger.info(f"正在使用 Whisper ({self.whisper_model}) 转录音频...")
-            segments = transcribe(audio_path, model=self.whisper_model)
+
+            def on_progress(current, total):
+                pct = int(current / total * 100) if total > 0 else 0
+                self.progress_pct.emit(pct)
+                self.progress.emit(f"正在转录音频... {pct}%")
+
+            segments = transcribe_with_progress(
+                audio_path, model=self.whisper_model,
+                progress_callback=on_progress
+            )
             result["transcript"] = segments
             logger.info(f"转录完成，共 {len(segments)} 个片段")
+
+            self.progress_mode.emit("indeterminate")
 
             if self.generate_summary and self.llm_provider:
                 self.progress.emit("正在生成摘要...")
@@ -404,6 +422,8 @@ class MainWindow(QMainWindow):
             self.model_combo.currentText() if generate_summary else "",
         )
         self.worker.progress.connect(self._on_progress)
+        self.worker.progress_pct.connect(self._on_progress_pct)
+        self.worker.progress_mode.connect(self._on_progress_mode)
         self.worker.finished.connect(self._on_finished)
         self.worker.error.connect(self._on_error)
         self.worker.start()
@@ -411,6 +431,17 @@ class MainWindow(QMainWindow):
     def _on_progress(self, msg: str):
         self.status_label.setText(msg)
         self.progress_bar.repaint()
+
+    def _on_progress_pct(self, pct: int):
+        self.progress_bar.setValue(pct)
+
+    def _on_progress_mode(self, mode: str):
+        if mode == "indeterminate":
+            self.progress_bar.setMaximum(0)
+            self.progress_bar.setValue(0)
+        else:
+            self.progress_bar.setMaximum(100)
+            self.progress_bar.setValue(0)
 
     def _on_finished(self, result: dict):
         self.current_result = result
