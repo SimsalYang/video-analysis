@@ -7,9 +7,9 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTabWidget,
     QLabel, QLineEdit, QPushButton, QTextEdit, QProgressBar,
     QFileDialog, QMessageBox, QGroupBox, QRadioButton, QComboBox,
-    QCheckBox,
+    QCheckBox, QApplication,
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QThread, QEvent, pyqtSignal
 
 from video2text.core.file_handler import validate_file, extract_audio, is_audio_file, get_duration
 from video2text.core.downloader import download_video
@@ -19,6 +19,15 @@ from video2text.core.output_formatter import format_markdown, format_json
 from video2text.utils.config import (
     get_ollama_model, get_openai_api_key, get_gemini_api_key, get_whisper_model,
 )
+
+ASYNC_RESULT_TYPE = QEvent.Type(QEvent.registerEventType())
+
+
+class _AsyncResultEvent(QEvent):
+    def __init__(self, async_result, callback):
+        super().__init__(ASYNC_RESULT_TYPE)
+        self.async_result = async_result
+        self.callback = callback
 
 
 class Worker(QThread):
@@ -141,6 +150,18 @@ class MainWindow(QMainWindow):
 
         self._setup_ui()
         self._load_config()
+
+    def _run_async(self, work_fn, result_fn):
+        """Run work function in background thread and deliver result via callback on main thread."""
+        def thread_target():
+            work_result = work_fn()
+            QApplication.instance().postEvent(
+                self,
+                _AsyncResultEvent(work_result, result_fn)
+            )
+        import threading
+        t = threading.Thread(target=thread_target, daemon=True)
+        t.start()
 
     def _setup_ui(self):
         central = QWidget()
@@ -279,10 +300,54 @@ class MainWindow(QMainWindow):
         if api_key:
             self.gemini_rb.setEnabled(True)
 
+    def _load_ollama_models_async(self):
+        """Load Ollama models asynchronously when Ollama tab is selected."""
+        self.model_combo.clear()
+        self.model_combo.addItem("加载中...")
+        self.model_combo.setEnabled(False)
+
+        def fetch():
+            from video2text.core.ollama_client import list_models, is_ollama_running
+            from video2text.utils.config import get_ollama_base_url
+
+            running = is_ollama_running(get_ollama_base_url())
+            if not running:
+                return None, "Ollama 服务未运行，已使用默认列表"
+
+            models = list_models(get_ollama_base_url())
+            return models, None
+
+        def on_result(async_result):
+            models, err = async_result
+            self.model_combo.setEnabled(True)
+            if err:
+                QMessageBox.warning(self, "Ollama 连接失败", err)
+                self.model_combo.clear()
+                self.model_combo.addItems(["llama3.2", "deepseek-r1:7b"])
+            elif not models:
+                self.model_combo.clear()
+                self.model_combo.addItems(["llama3.2", "deepseek-r1:7b"])
+            else:
+                self.model_combo.clear()
+                self.model_combo.addItems(models)
+                saved = get_ollama_model()
+                idx = self.model_combo.findText(saved)
+                if idx >= 0:
+                    self.model_combo.setCurrentIndex(idx)
+
+        self._run_async(fetch, on_result)
+
+    def event(self, e):
+        """Handle async result events delivered from background threads."""
+        if isinstance(e, _AsyncResultEvent):
+            e.callback(e.async_result)
+            return True
+        return super().event(e)
+
     def _update_model_list(self, provider: str):
         self.model_combo.clear()
         if provider == "ollama":
-            self.model_combo.addItems(["llama3.2", "deepseek-r1:7b"])
+            self._load_ollama_models_async()
         elif provider == "openai":
             self.model_combo.addItems(["gpt-4o", "gpt-4o-mini", "o3", "o3-mini"])
         elif provider == "gemini":

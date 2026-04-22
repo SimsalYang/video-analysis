@@ -20,7 +20,17 @@
       "Bash(git commit:*)",
       "Bash(ffmpeg -version)",
       "Bash(curl -s http://localhost:11434/api/tags)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(pytest tests/test_ollama_client.py -v)",
+      "Bash(PYTHONPATH=src python -c \"from video2text.core.ollama_client import list_models, is_ollama_running; print\\('OK'\\)\")",
+      "Bash(where python:*)",
+      "Bash(\"C:/Users/xuewu/AppData/Local/Programs/Python/Python310/python.exe\" -c \"from video2text.core.ollama_client import list_models, is_ollama_running; print\\('OK'\\)\")",
+      "Bash(\"C:/Users/xuewu/AppData/Local/Programs/Python/Python310/python.exe\" -m pytest tests/test_ollama_client.py -v)",
+      "Bash(\"C:/Users/xuewu/AppData/Local/Programs/Python/Python310/python.exe\" -c \"from video2text.ui.main_window import MainWindow, _run_async, _AsyncResultEvent; print\\('OK'\\)\")",
+      "Bash(git show:*)",
+      "Bash(python3 -c \"from video2text.ui.main_window import MainWindow; print\\('OK'\\)\")",
+      "Bash(F:/WORKSPACE/Projects/video-analysis/.venv/Scripts/python.exe:*)",
+      "Bash(/c/Users/xuewu/AppData/Local/Programs/Python/Python310/python.exe:*)"
     ]
   }
 }
