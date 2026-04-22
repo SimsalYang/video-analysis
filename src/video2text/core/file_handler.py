@@ -5,6 +5,8 @@ import tempfile
 from pathlib import Path
 from typing import Optional, Tuple
 
+from video2text.utils.config import get_ffmpeg_bin
+
 SUPPORTED_VIDEO_FORMATS = {".mp4", ".mkv", ".avi", ".mov", ".webm"}
 SUPPORTED_AUDIO_FORMATS = {".mp3", ".wav", ".m4a", ".flac", ".aac", ".ogg"}
 SUPPORTED_FORMATS = SUPPORTED_VIDEO_FORMATS | SUPPORTED_AUDIO_FORMATS
@@ -24,7 +26,7 @@ def get_duration(file_path: str) -> str:
     """Get duration of video/audio file using ffprobe. Returns HH:MM:SS string."""
     result = subprocess.run(
         [
-            "ffprobe", "-v", "error", "-show_entries", "format=duration",
+            get_ffmpeg_bin("ffprobe"), "-v", "error", "-show_entries", "format=duration",
             "-of", "default=noprint_wrappers=1:nokey=1", file_path
         ],
         capture_output=True, text=True, check=True
@@ -43,7 +45,7 @@ def extract_audio(video_path: str, output_path: Optional[str] = None) -> str:
 
     result = subprocess.run(
         [
-            "ffmpeg", "-y", "-i", video_path,
+            get_ffmpeg_bin("ffmpeg"), "-y", "-i", video_path,
             "-vn", "-acodec", "libmp3lame", "-q:a", "2",
             output_path
         ],

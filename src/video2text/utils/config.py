@@ -20,3 +20,28 @@ def get_gemini_api_key():
 
 def get_whisper_model() -> str:
     return os.getenv("WHISPER_MODEL", "base")
+
+
+def get_ffmpeg_path() -> str:
+    """Get the path to bundled FFmpeg directory.
+    When running as PyInstaller bundle, returns the _MEIPASS directory.
+    Otherwise returns 'vendor/ffmpeg' relative to project root.
+    """
+    import sys
+    import os
+
+    # PyInstaller frozen: files extracted to sys._MEIPASS
+    if getattr(sys, 'frozen', False):
+        base = sys._MEIPASS
+        ffmpeg_dir = os.path.join(base, "ffmpeg")
+    else:
+        # Development mode: vendor/ffmpeg next to project root
+        base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        ffmpeg_dir = os.path.join(base, "vendor", "ffmpeg")
+
+    return ffmpeg_dir
+
+
+def get_ffmpeg_bin(name: str) -> str:
+    """Get full path to a bundled FFmpeg binary."""
+    return os.path.join(get_ffmpeg_path(), name)
