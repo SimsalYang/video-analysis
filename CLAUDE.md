@@ -20,7 +20,24 @@ pytest tests/ -v
 
 # Run a specific test file
 pytest tests/test_transcriber.py -v
+
+# Build bundled FFmpeg (Windows PowerShell)
+.\scripts\prepare-ffmpeg.ps1
+
+# Package with PyInstaller
+pip install pyinstaller
+pyinstaller video2text.spec --clean
+
+# Build NSIS installer
+makensis installer.nsi
 ```
+
+## Bundled Dependencies
+
+FFmpeg binaries (ffmpeg.exe, ffprobe.exe) are bundled in `vendor/ffmpeg/`.
+At runtime, config.py resolves the correct path:
+- PyInstaller bundle: `sys._MEIPASS/ffmpeg/`
+- Development: `project_root/vendor/ffmpeg/`
 
 ## Architecture
 
