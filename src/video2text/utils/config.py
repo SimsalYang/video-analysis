@@ -44,4 +44,4 @@ def get_ffmpeg_path() -> str:
 
 def get_ffmpeg_bin(name: str) -> str:
     """Get full path to a bundled FFmpeg binary."""
-    return os.path.join(get_ffmpeg_path(), name)
+    return os.path.join(get_ffmpeg_path(), name + ".exe")
