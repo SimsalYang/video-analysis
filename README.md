@@ -20,13 +20,40 @@
 
 Windows: `winget install FFmpeg` 或从 https://ffmpeg.org 下载
 
-### 2. 安装 Python 依赖
+### 2. 安装 Ollama（本地 LLM，可选）
+
+Ollama 用于本地免费的 LLM 摘要功能。
+
+**Windows/macOS/Linux:**
+1. 从 https://ollama.com 下载安装
+2. 启动 Ollama 服务（Windows 通常自动启动）
+3. 下载模型，例如：
+   ```bash
+   ollama pull llama3.2      # 基础模型，约 2GB
+   ollama pull deepseek-r1:7b # 中文能力强
+   ```
+
+**常用命令:**
+```bash
+ollama list           # 查看已下载的模型
+ollama pull <模型名>   # 下载新模型
+ollama rm <模型名>     # 删除模型
+ollama run <模型名>    # 直接运行模型测试
+```
+
+### 3. Whisper 模型（首次自动下载）
+
+faster-whisper 首次使用时会自动从 Hugging Face 下载模型（需要网络连接）。模型会缓存到本地，后续无需重新下载。
+
+可用模型：tiny, base, small, medium, large（越大越准确但越慢）
+
+### 4. 安装 Python 依赖
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. 配置 (可选)
+### 5. 配置 (可选)
 
 复制 `.env.example` 为 `.env`，填入 API 密钥：
 
@@ -38,7 +65,7 @@ GEMINI_API_KEY=...
 WHISPER_MODEL=base
 ```
 
-### 4. 运行
+### 6. 运行
 
 ```bash
 python -m video2text
