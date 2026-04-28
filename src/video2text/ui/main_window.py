@@ -17,7 +17,7 @@ from video2text.core.transcriber import transcribe, transcribe_with_progress, fo
 from video2text.core.summarizer import create_provider
 from video2text.core.output_formatter import format_markdown, format_json
 from video2text.utils.config import (
-    get_ollama_model, get_openai_api_key, get_gemini_api_key, get_whisper_model,
+    get_ollama_base_url, get_ollama_model, get_openai_api_key, get_gemini_api_key, get_whisper_model,
 )
 
 ASYNC_RESULT_TYPE = QEvent.Type(QEvent.registerEventType())
@@ -165,6 +165,7 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(900, 700)
         self.current_result = None
         self.selected_file = None
+        self._ollama_status = None
 
         self._setup_ui()
         self._load_config()
@@ -238,10 +239,9 @@ class MainWindow(QMainWindow):
         model_layout = QHBoxLayout()
         model_layout.addWidget(QLabel("模型:"))
         self.model_combo = QComboBox()
-        self.model_combo.addItems(["llama3.2", "deepseek-r1:7b"])
-        self.ollama_rb.toggled.connect(lambda: self._update_model_list("ollama"))
-        self.openai_rb.toggled.connect(lambda: self._update_model_list("openai"))
-        self.gemini_rb.toggled.connect(lambda: self._update_model_list("gemini"))
+        self.ollama_rb.toggled.connect(lambda checked: checked and self._update_model_list("ollama"))
+        self.openai_rb.toggled.connect(lambda checked: checked and self._update_model_list("openai"))
+        self.gemini_rb.toggled.connect(lambda checked: checked and self._update_model_list("gemini"))
         model_layout.addWidget(self.model_combo)
         model_layout.addStretch()
         llm_layout.addLayout(model_layout)
@@ -306,52 +306,184 @@ class MainWindow(QMainWindow):
 
     def _load_config(self):
         self.whisper_model_combo.setCurrentText(get_whisper_model())
-        ollama_model = get_ollama_model()
-        if ollama_model:
-            idx = self.model_combo.findText(ollama_model)
-            if idx >= 0:
-                self.model_combo.setCurrentIndex(idx)
         api_key = get_openai_api_key()
         if api_key:
             self.openai_rb.setEnabled(True)
         api_key = get_gemini_api_key()
         if api_key:
             self.gemini_rb.setEnabled(True)
+        self._update_model_list("ollama")
+        # Check Whisper models on startup
+        self._check_whisper_models()
 
-    def _load_ollama_models_async(self):
+    def _get_ollama_status(self):
+        from video2text.core.ollama_client import is_ollama_installed, is_ollama_running, list_models
+
+        if not is_ollama_installed():
+            return {
+                "installed": False,
+                "running": False,
+                "models": [],
+                "message": "未检测到 Ollama。请先安装 Ollama 后再使用本地模型。",
+            }
+
+        base_url = get_ollama_base_url()
+        if not is_ollama_running(base_url):
+            return {
+                "installed": True,
+                "running": False,
+                "models": [],
+                "message": "已检测到 Ollama，但服务未启动。请先启动 Ollama。",
+            }
+
+        models = list_models(base_url)
+        if not models:
+            return {
+                "installed": True,
+                "running": True,
+                "models": [],
+                "message": "Ollama 已启动，但未找到任何已安装模型。\n请先执行例如：ollama pull llama3.2",
+            }
+
+        return {
+            "installed": True,
+            "running": True,
+            "models": models,
+            "message": "",
+        }
+
+    def _apply_ollama_status(self, status: dict, show_dialog: bool = True):
+        self._ollama_status = status
+        self.model_combo.clear()
+
+        if status["models"]:
+            self.model_combo.setEnabled(True)
+            self.model_combo.addItems(status["models"])
+            saved = get_ollama_model()
+            idx = self.model_combo.findText(saved)
+            self.model_combo.setCurrentIndex(idx if idx >= 0 else 0)
+            return
+
+        self.model_combo.setEnabled(False)
+        if not status["installed"]:
+            self.model_combo.addItem("未安装 Ollama")
+        elif not status["running"]:
+            self.model_combo.addItem("Ollama 未启动")
+        else:
+            self.model_combo.addItem("未安装本地模型")
+
+        if show_dialog:
+            QMessageBox.warning(self, "Ollama 状态", status["message"])
+
+    def _check_whisper_models(self):
+        """Check if Whisper models are available, prompt download if not."""
+        from faster_whisper import WhisperModel
+        def check():
+            try:
+                # Try loading the smallest model to check connectivity
+                model = WhisperModel("tiny", device="cpu", compute_type="int8")
+                return True, None
+            except Exception as e:
+                return False, str(e)
+
+        def on_result(async_result):
+            success, err = async_result
+            if not success:
+                QMessageBox.warning(
+                    self, "Whisper 模型未找到",
+                    f"Whisper 模型首次使用需要下载。\n"
+                    f"错误: {err}\n\n"
+                    f"请确保网络连接，首次运行时会自动下载模型。\n"
+                    f"或手动下载: huggingface.co/Systran/faster-whisper-{get_whisper_model()}"
+                )
+
+        self._run_async(check, on_result)
+
+    def _load_ollama_models_async(self, show_dialog: bool = True):
         """Load Ollama models asynchronously when Ollama tab is selected."""
         self.model_combo.clear()
         self.model_combo.addItem("加载中...")
         self.model_combo.setEnabled(False)
 
         def fetch():
-            from video2text.core.ollama_client import list_models, is_ollama_running
-            from video2text.utils.config import get_ollama_base_url
+            return self._get_ollama_status()
 
-            running = is_ollama_running(get_ollama_base_url())
-            if not running:
-                return None, "Ollama 服务未运行，已使用默认列表"
+        def on_result(async_result):
+            self._apply_ollama_status(async_result, show_dialog=show_dialog)
 
-            models = list_models(get_ollama_base_url())
-            return models, None
+        self._run_async(fetch, on_result)
+
+    def _load_openai_models_async(self):
+        """Load OpenAI models asynchronously."""
+        self.model_combo.clear()
+        self.model_combo.addItem("加载中...")
+        self.model_combo.setEnabled(False)
+
+        def fetch():
+            from video2text.utils.config import get_openai_api_key
+            api_key = get_openai_api_key()
+            if not api_key:
+                return None, "请先在 .env 中配置 OPENAI_API_KEY"
+            try:
+                from openai import OpenAI
+                client = OpenAI(api_key=api_key)
+                models = client.models.list()
+                model_list = [m.id for m in models.data if "gpt" in m.id.lower()]
+                return model_list, None
+            except Exception as e:
+                return None, f"获取 OpenAI 模型失败: {e}"
 
         def on_result(async_result):
             models, err = async_result
             self.model_combo.setEnabled(True)
             if err:
-                QMessageBox.warning(self, "Ollama 连接失败", err)
+                QMessageBox.warning(self, "OpenAI 模型获取失败", err)
                 self.model_combo.clear()
-                self.model_combo.addItems(["llama3.2", "deepseek-r1:7b"])
-            elif not models:
+                self.model_combo.addItems(["gpt-4o", "gpt-4o-mini", "o3", "o3-mini"])
+                return
+            if not models:
                 self.model_combo.clear()
-                self.model_combo.addItems(["llama3.2", "deepseek-r1:7b"])
-            else:
+                self.model_combo.addItems(["gpt-4o", "gpt-4o-mini", "o3", "o3-mini"])
+                return
+            self.model_combo.clear()
+            self.model_combo.addItems(models)
+
+        self._run_async(fetch, on_result)
+
+    def _load_gemini_models_async(self):
+        """Load Gemini models asynchronously."""
+        self.model_combo.clear()
+        self.model_combo.addItem("加载中...")
+        self.model_combo.setEnabled(False)
+
+        def fetch():
+            from video2text.utils.config import get_gemini_api_key
+            api_key = get_gemini_api_key()
+            if not api_key:
+                return None, "请先在 .env 中配置 GEMINI_API_KEY"
+            try:
+                import google.genai as genai
+                client = genai.Client(api_key=api_key)
+                models = client.models.list()
+                model_list = [m.name.replace("models/", "") for m in models.models]
+                return model_list, None
+            except Exception as e:
+                return None, f"获取 Gemini 模型失败: {e}"
+
+        def on_result(async_result):
+            models, err = async_result
+            self.model_combo.setEnabled(True)
+            if err:
+                QMessageBox.warning(self, "Gemini 模型获取失败", err)
                 self.model_combo.clear()
-                self.model_combo.addItems(models)
-                saved = get_ollama_model()
-                idx = self.model_combo.findText(saved)
-                if idx >= 0:
-                    self.model_combo.setCurrentIndex(idx)
+                self.model_combo.addItems(["gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.5-pro"])
+                return
+            if not models:
+                self.model_combo.clear()
+                self.model_combo.addItems(["gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.5-pro"])
+                return
+            self.model_combo.clear()
+            self.model_combo.addItems(models)
 
         self._run_async(fetch, on_result)
 
@@ -365,11 +497,11 @@ class MainWindow(QMainWindow):
     def _update_model_list(self, provider: str):
         self.model_combo.clear()
         if provider == "ollama":
-            self._load_ollama_models_async()
+            self._load_ollama_models_async(show_dialog=True)
         elif provider == "openai":
-            self.model_combo.addItems(["gpt-4o", "gpt-4o-mini", "o3", "o3-mini"])
+            self._load_openai_models_async()
         elif provider == "gemini":
-            self.model_combo.addItems(["gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.5-pro"])
+            self._load_gemini_models_async()
 
     def _on_transcribe_mode_changed(self, checked):
         """Disable LLM settings when in transcribe-only mode."""
@@ -404,6 +536,12 @@ class MainWindow(QMainWindow):
         if generate_summary:
             provider_type = "ollama" if self.ollama_rb.isChecked() else ("openai" if self.openai_rb.isChecked() else "gemini")
             model = self.model_combo.currentText()
+            if provider_type == "ollama":
+                status = self._get_ollama_status()
+                self._apply_ollama_status(status, show_dialog=not status["models"])
+                if not status["models"]:
+                    return
+                model = self.model_combo.currentText()
             try:
                 llm_provider = create_provider(provider_type, model=model)
             except Exception as e:

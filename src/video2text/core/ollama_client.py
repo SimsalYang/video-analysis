@@ -1,6 +1,12 @@
 """Ollama API client for model discovery."""
+import shutil
 from typing import List
 import requests
+
+
+def is_ollama_installed() -> bool:
+    """Check whether the Ollama CLI is available on PATH."""
+    return shutil.which("ollama") is not None
 
 
 def list_models(base_url: str = "http://localhost:11434") -> List[str]:

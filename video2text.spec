@@ -6,7 +6,7 @@ block_cipher = None
 
 a = Analysis(
     ['src/video2text/__main__.py'],
-    pathex=[],
+    pathex=['src'],
     binaries=[
         # Bundled FFmpeg — binaries extracted to dist/video2text/ffmpeg/
         ('vendor/ffmpeg', 'ffmpeg',),

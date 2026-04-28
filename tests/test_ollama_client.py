@@ -1,7 +1,16 @@
 """Tests for Ollama client."""
-import pytest
 from unittest.mock import patch, MagicMock
-from video2text.core.ollama_client import list_models, is_ollama_running
+from video2text.core.ollama_client import list_models, is_ollama_running, is_ollama_installed
+
+
+def test_is_ollama_installed_returns_true_when_cli_on_path():
+    with patch("video2text.core.ollama_client.shutil.which", return_value="C:\\ollama.exe"):
+        assert is_ollama_installed() is True
+
+
+def test_is_ollama_installed_returns_false_when_cli_missing():
+    with patch("video2text.core.ollama_client.shutil.which", return_value=None):
+        assert is_ollama_installed() is False
 
 
 def test_list_models_returns_model_names():
