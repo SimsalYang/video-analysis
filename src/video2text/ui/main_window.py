@@ -166,6 +166,9 @@ class MainWindow(QMainWindow):
         self.current_result = None
         self.selected_file = None
         self._ollama_status = None
+        self._is_processing = False
+        self._active_transcription_model = ""
+        self._active_summary_model = ""
 
         self._setup_ui()
         self._load_config()
@@ -306,12 +309,8 @@ class MainWindow(QMainWindow):
 
     def _load_config(self):
         self.whisper_model_combo.setCurrentText(get_whisper_model())
-        api_key = get_openai_api_key()
-        if api_key:
-            self.openai_rb.setEnabled(True)
-        api_key = get_gemini_api_key()
-        if api_key:
-            self.gemini_rb.setEnabled(True)
+        self.openai_rb.setEnabled(bool(get_openai_api_key()))
+        self.gemini_rb.setEnabled(bool(get_gemini_api_key()))
         self._update_model_list("ollama")
         # Check Whisper models on startup
         self._check_whisper_models()
@@ -357,20 +356,21 @@ class MainWindow(QMainWindow):
         self.model_combo.clear()
 
         if status["models"]:
-            self.model_combo.setEnabled(True)
             self.model_combo.addItems(status["models"])
             saved = get_ollama_model()
             idx = self.model_combo.findText(saved)
             self.model_combo.setCurrentIndex(idx if idx >= 0 else 0)
+            self._sync_llm_controls()
             return
 
-        self.model_combo.setEnabled(False)
         if not status["installed"]:
             self.model_combo.addItem("未安装 Ollama")
         elif not status["running"]:
             self.model_combo.addItem("Ollama 未启动")
         else:
             self.model_combo.addItem("未安装本地模型")
+
+        self._sync_llm_controls()
 
         if show_dialog:
             QMessageBox.warning(self, "Ollama 状态", status["message"])
@@ -503,12 +503,42 @@ class MainWindow(QMainWindow):
         elif provider == "gemini":
             self._load_gemini_models_async()
 
+    def _sync_llm_controls(self):
+        """Sync LLM controls based on provider availability and processing state."""
+        if self._is_processing:
+            return
+
+        llm_enabled = not self.transcribe_only_cb.isChecked()
+        self.ollama_rb.setEnabled(llm_enabled)
+        self.openai_rb.setEnabled(llm_enabled and bool(get_openai_api_key()))
+        self.gemini_rb.setEnabled(llm_enabled and bool(get_gemini_api_key()))
+
+        model_enabled = llm_enabled
+        if self.ollama_rb.isChecked():
+            model_enabled = model_enabled and bool(self._ollama_status and self._ollama_status["models"])
+
+        self.model_combo.setEnabled(model_enabled)
+
     def _on_transcribe_mode_changed(self, checked):
         """Disable LLM settings when in transcribe-only mode."""
-        self.ollama_rb.setEnabled(not checked)
-        self.openai_rb.setEnabled(not checked)
-        self.gemini_rb.setEnabled(not checked)
-        self.model_combo.setEnabled(not checked)
+        self._sync_llm_controls()
+
+    def _set_processing_state(self, processing: bool):
+        """Lock interactive controls while work is in progress."""
+        self._is_processing = processing
+        self.process_btn.setEnabled(not processing)
+        self.tab_widget.setEnabled(not processing)
+        self.browse_btn.setEnabled(not processing)
+        self.url_input.setEnabled(not processing)
+        self.transcribe_only_cb.setEnabled(not processing)
+        self.whisper_model_combo.setEnabled(not processing)
+        if processing:
+            self.ollama_rb.setEnabled(False)
+            self.openai_rb.setEnabled(False)
+            self.gemini_rb.setEnabled(False)
+            self.model_combo.setEnabled(False)
+        else:
+            self._sync_llm_controls()
 
     def _browse_file(self):
         filters = "视频文件 (*.mp4 *.mkv *.avi *.mov *.webm);;音频文件 (*.mp3 *.wav *.m4a *.flac);;所有文件 (*.*)"
@@ -533,6 +563,7 @@ class MainWindow(QMainWindow):
         generate_summary = not self.transcribe_only_cb.isChecked()
 
         llm_provider = None
+        summary_model = ""
         if generate_summary:
             provider_type = "ollama" if self.ollama_rb.isChecked() else ("openai" if self.openai_rb.isChecked() else "gemini")
             model = self.model_combo.currentText()
@@ -542,13 +573,30 @@ class MainWindow(QMainWindow):
                 if not status["models"]:
                     return
                 model = self.model_combo.currentText()
+                api_key = ""
+            elif provider_type == "openai":
+                api_key = get_openai_api_key()
+                if not api_key:
+                    QMessageBox.warning(self, "OpenAI 配置缺失", "请先在 .env 中配置 OPENAI_API_KEY")
+                    return
+            else:
+                api_key = get_gemini_api_key()
+                if not api_key:
+                    QMessageBox.warning(self, "Gemini 配置缺失", "请先在 .env 中配置 GEMINI_API_KEY")
+                    return
             try:
-                llm_provider = create_provider(provider_type, model=model)
+                llm_provider = create_provider(provider_type, api_key=api_key, model=model)
+                summary_model = model
             except Exception as e:
                 QMessageBox.warning(self, "LLM 错误", f"无法创建 LLM Provider: {e}\n请确保 Ollama 已启动，或配置了 API Key。")
                 return
 
-        self.process_btn.setEnabled(False)
+        self.current_result = None
+        self.export_md_btn.setEnabled(False)
+        self.export_json_btn.setEnabled(False)
+        self._active_transcription_model = self.whisper_model_combo.currentText()
+        self._active_summary_model = summary_model
+        self._set_processing_state(True)
         self.progress_bar.setVisible(True)
         self.status_label.setText("处理中...")
         self.result_text.clear()
@@ -556,8 +604,8 @@ class MainWindow(QMainWindow):
         self.worker = Worker(
             source_type, source_path, generate_summary,
             llm_provider,
-            self.whisper_model_combo.currentText(),
-            self.model_combo.currentText() if generate_summary else "",
+            self._active_transcription_model,
+            self._active_summary_model,
         )
         self.worker.progress.connect(self._on_progress)
         self.worker.progress_pct.connect(self._on_progress_pct)
@@ -582,18 +630,19 @@ class MainWindow(QMainWindow):
             self.progress_bar.setValue(0)
 
     def _on_finished(self, result: dict):
+        result["transcription_model"] = self._active_transcription_model
+        result["summary_model"] = self._active_summary_model if result["summary"] else ""
         self.current_result = result
         self.progress_bar.setVisible(False)
-        self.process_btn.setEnabled(True)
+        self._set_processing_state(False)
 
-        summary_model = self.model_combo.currentText() if result["summary"] else ""
         md = format_markdown(
             source=result["source"],
             segments=result["transcript"],
             summary=result["summary"],
             duration=result["duration"],
-            transcription_model=self.whisper_model_combo.currentText(),
-            summary_model=summary_model,
+            transcription_model=result["transcription_model"],
+            summary_model=result["summary_model"],
         )
         self.result_text.setPlainText(md)
         self.status_label.setText("处理完成！")
@@ -601,8 +650,11 @@ class MainWindow(QMainWindow):
         self.export_json_btn.setEnabled(True)
 
     def _on_error(self, err: str):
+        self.current_result = None
         self.progress_bar.setVisible(False)
-        self.process_btn.setEnabled(True)
+        self.export_md_btn.setEnabled(False)
+        self.export_json_btn.setEnabled(False)
+        self._set_processing_state(False)
         self.status_label.setText("错误")
         QMessageBox.critical(self, "处理错误", err)
 
@@ -623,8 +675,8 @@ class MainWindow(QMainWindow):
                 segments=self.current_result["transcript"],
                 summary=self.current_result["summary"],
                 duration=self.current_result["duration"],
-                transcription_model=self.whisper_model_combo.currentText(),
-                summary_model=self.model_combo.currentText(),
+                transcription_model=self.current_result.get("transcription_model", ""),
+                summary_model=self.current_result.get("summary_model", ""),
             )
 
         with open(path, "w", encoding="utf-8") as f:

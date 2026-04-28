@@ -23,6 +23,7 @@ venv/
 .idea/
 *.swp
 *.swo
+.claude/settings.local.json
 
 # OS
 .DS_Store
@@ -31,3 +32,4 @@ Thumbs.db
 # Bundled FFmpeg (runtime only)
 vendor/ffmpeg/
 src/vendor/ffmpeg/
+scripts/vendor/
